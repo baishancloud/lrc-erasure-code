@@ -326,8 +326,8 @@ void gf_w64_neon_split_init(gf_t *gf)
   gf_internal_t *h = (gf_internal_t *) gf->scratch;
 
   if (h->region_type & GF_REGION_ALTMAP)
-      gf->multiply_region.w64 = gf_w64_split_4_64_lazy_altmap_multiply_region_neon;
+      SET_FUNCTION(gf,multiply_region,w64,gf_w64_split_4_64_lazy_altmap_multiply_region_neon)
   else
-      gf->multiply_region.w64 = gf_w64_split_4_64_lazy_multiply_region_neon;
+      SET_FUNCTION(gf,multiply_region,w64,gf_w64_split_4_64_lazy_multiply_region_neon)
 
 }

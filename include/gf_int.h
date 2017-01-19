@@ -30,7 +30,23 @@ typedef struct {
   int arg2;
   gf_t *base_gf;
   void *private;
+#ifdef DEBUG_FUNCTIONS
+  const char *multiply;
+  const char *divide;
+  const char *inverse;
+  const char *multiply_region;
+  const char *extract_word;
+#endif
 } gf_internal_t;
+
+#ifdef DEBUG_FUNCTIONS
+#define SET_FUNCTION(gf,method,size,func) \
+  { (gf)->method.size = (func); \
+  ((gf_internal_t*)(gf)->scratch)->method = #func; }
+#else
+#define SET_FUNCTION(gf,method,size,func) \
+  (gf)->method.size = (func);
+#endif
 
 extern int gf_w4_init (gf_t *gf);
 extern int gf_w4_scratch_size(int mult_type, int region_type, int divide_type, int arg1, int arg2);

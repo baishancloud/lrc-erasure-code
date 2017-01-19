@@ -16,6 +16,7 @@ liblrc_la_SOURCES = \
                   gf_w128.c  \
                   gf_rand.c  \
                   gf_general.c  \
+                  gf_cpu.c  \
                   cauchy.c \
                   galois.c \
                   liberation.c \

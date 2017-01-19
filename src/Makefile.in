@@ -139,7 +139,7 @@ am__uninstall_files_from_dir = { \
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 liblrc_la_LIBADD =
-am__liblrc_la_SOURCES_DIST = gf.c gf_method.c gf_wgen.c gf_w4.c \
+am__liblrc_la_SOURCES_DIST = gf.c gf_cpu.c gf_method.c gf_wgen.c gf_w4.c \
 	gf_w8.c gf_w16.c gf_w32.c gf_w64.c gf_w128.c gf_rand.c \
 	gf_general.c cauchy.c galois.c liberation.c reed_sol.c \
 	jerasure.c lrc.c neon/gf_w4_neon.c neon/gf_w8_neon.c \
@@ -148,7 +148,7 @@ am__dirstamp = $(am__leading_dot)dirstamp
 @HAVE_NEON_TRUE@am__objects_1 = neon/gf_w4_neon.lo neon/gf_w8_neon.lo \
 @HAVE_NEON_TRUE@	neon/gf_w16_neon.lo neon/gf_w32_neon.lo \
 @HAVE_NEON_TRUE@	neon/gf_w64_neon.lo
-am_liblrc_la_OBJECTS = gf.lo gf_method.lo gf_wgen.lo gf_w4.lo gf_w8.lo \
+am_liblrc_la_OBJECTS = gf.lo gf_cpu.lo gf_method.lo gf_wgen.lo gf_w4.lo gf_w8.lo \
 	gf_w16.lo gf_w32.lo gf_w64.lo gf_w128.lo gf_rand.lo \
 	gf_general.lo cauchy.lo galois.lo liberation.lo reed_sol.lo \
 	jerasure.lo lrc.lo $(am__objects_1)
@@ -335,7 +335,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/include
 AM_CFLAGS = -O2 $(SIMD_FLAGS) -fPIC
 ACLOCAL_AMFLAGS = -I m4
 lib_LTLIBRARIES = liblrc.la
-liblrc_la_SOURCES = gf.c gf_method.c gf_wgen.c gf_w4.c gf_w8.c \
+liblrc_la_SOURCES = gf.c gf_cpu.c gf_method.c gf_wgen.c gf_w4.c gf_w8.c \
 	gf_w16.c gf_w32.c gf_w64.c gf_w128.c gf_rand.c gf_general.c \
 	cauchy.c galois.c liberation.c reed_sol.c jerasure.c lrc.c \
 	$(am__append_1)

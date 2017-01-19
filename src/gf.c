@@ -11,6 +11,8 @@
 #include "gf_int.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
+#include "gf_cpu.h"
 
 int _gf_errno = GF_E_DEFAULT;
 
@@ -118,7 +120,7 @@ void gf_error()
 uint64_t gf_composite_get_default_poly(gf_t *base) 
 {
   gf_internal_t *h;
-  int rv;
+  uint64_t rv;
 
   h = (gf_internal_t *) base->scratch;
   if (h->w == 4) {
@@ -206,20 +208,28 @@ int gf_error_check(int w, int mult_type, int region_type, int divide_type,
   if (region_type & (~tmp)) { _gf_errno = GF_E_UNK_REG; return 0; }
 
 #ifdef INTEL_SSE2
-  sse2 = 1;
+  if (gf_cpu_supports_intel_sse2) {
+    sse2 = 1;
+  }
 #endif
 
 #ifdef INTEL_SSSE3
-  sse3 = 1;
+  if (gf_cpu_supports_intel_ssse3) {
+    sse3 = 1;
+  }
 #endif
 
 #ifdef INTEL_SSE4_PCLMUL
-  pclmul = 1;
+  if (gf_cpu_supports_intel_pclmul) {
+    pclmul = 1;
+  }
 #endif
 
 #ifdef ARM_NEON
-  pclmul = 1;
-  sse3 = 1;
+  if (gf_cpu_supports_arm_neon) {
+    pclmul = (w == 4 || w == 8);
+    sse3 = 1;
+  }
 #endif
 
 
@@ -472,6 +482,8 @@ int gf_init_hard(gf_t *gf, int w, int mult_type,
   int sz;
   gf_internal_t *h;
  
+  gf_cpu_identify();
+
   if (gf_error_check(w, mult_type, region_type, divide_type, 
                      arg1, arg2, prim_poly, base_gf) == 0) return 0;
 
@@ -528,7 +540,7 @@ void gf_alignment_error(char *s, int a)
   fprintf(stderr, "Alignment error in %s:\n", s);
   fprintf(stderr, "   The source and destination buffers must be aligned to each other,\n");
   fprintf(stderr, "   and they must be aligned to a %d-byte address.\n", a);
-  exit(1);
+  assert(0);
 }
 
 static 
@@ -551,7 +563,7 @@ void gf_invert_binary_matrix(uint32_t *mat, uint32_t *inv, int rows) {
       for (j = i+1; j < rows && (mat[j] & (1 << i)) == 0; j++) ;
       if (j == rows) {
         fprintf(stderr, "galois_invert_matrix: Matrix not invertible!!\n");
-        exit(1);
+        assert(0);
       }
       tmp = mat[i]; mat[i] = mat[j]; mat[j] = tmp;
       tmp = inv[i]; inv[i] = inv[j]; inv[j] = tmp;
@@ -583,7 +595,7 @@ uint32_t gf_bitmatrix_inverse(uint32_t y, int w, uint32_t pp)
   uint32_t mat[32], inv[32], mask;
   int i;
 
-  mask = (w == 32) ? 0xffffffff : (1 << w) - 1;
+  mask = (w == 32) ? 0xffffffff : ((uint32_t)1 << w) - 1;
   for (i = 0; i < w; i++) {
     mat[i] = y;
 
@@ -812,7 +824,7 @@ void gf_set_region_data(gf_region_data *rd,
     if (h != NULL && bytes % h->w != 0) {
       fprintf(stderr, "Error in region multiply operation.\n");
       fprintf(stderr, "The size must be a multiple of %d bytes.\n", h->w);
-      exit(1);
+      assert(0);
     }
   
     rd->s_start = src;
@@ -828,7 +840,7 @@ void gf_set_region_data(gf_region_data *rd,
     fprintf(stderr, "to each other along a %d byte boundary.\n", a);
     fprintf(stderr, "Src = 0x%lx.  Dest = 0x%lx\n", (unsigned long) src,
             (unsigned long) dest);
-    exit(1);
+    assert(0);
   }
 
   if (uls % wb != 0) {
@@ -836,13 +848,13 @@ void gf_set_region_data(gf_region_data *rd,
     fprintf(stderr, "The pointers must be aligned along a %d byte boundary.\n", wb);
     fprintf(stderr, "Src = 0x%lx.  Dest = 0x%lx\n", (unsigned long) src,
             (unsigned long) dest);
-    exit(1);
+    assert(0);
   }
 
   if (bytes % wb != 0) {
     fprintf(stderr, "Error in region multiply operation.\n");
     fprintf(stderr, "The size must be a multiple of %d bytes.\n", wb);
-    exit(1);
+    assert(0);
   }
 
   uls %= a;
@@ -900,100 +912,103 @@ static void gf_unaligned_xor(void *src, void *dest, int bytes);
 
 void gf_multby_one(void *src, void *dest, int bytes, int xor) 
 {
-#ifdef   INTEL_SSE2
-  __m128i ms, md;
-#endif
   unsigned long uls, uld;
   uint8_t *s8, *d8;
   uint64_t *s64, *d64, *dtop64;
   gf_region_data rd;
 
   if (!xor) {
-    memcpy(dest, src, bytes);
+    if (dest != src)
+      memcpy(dest, src, bytes);
     return;
   }
   uls = (unsigned long) src;
   uld = (unsigned long) dest;
 
 #ifdef   INTEL_SSE2
-  int abytes;
-  s8 = (uint8_t *) src;
-  d8 = (uint8_t *) dest;
-  if (uls % 16 == uld % 16) {
-    gf_set_region_data(&rd, NULL, src, dest, bytes, 1, xor, 16);
-    while (s8 != rd.s_start) {
-      *d8 ^= *s8;
-      d8++;
-      s8++;
+  if (gf_cpu_supports_intel_sse2) {
+    __m128i ms, md;
+    int abytes;
+    s8 = (uint8_t *) src;
+    d8 = (uint8_t *) dest;
+    if (uls % 16 == uld % 16) {
+      gf_set_region_data(&rd, NULL, src, dest, bytes, 1, xor, 16);
+      while (s8 != rd.s_start) {
+        *d8 ^= *s8;
+        d8++;
+        s8++;
+      }
+      while (s8 < (uint8_t *) rd.s_top) {
+        ms = _mm_load_si128 ((__m128i *)(s8));
+        md = _mm_load_si128 ((__m128i *)(d8));
+        md = _mm_xor_si128(md, ms);
+        _mm_store_si128((__m128i *)(d8), md);
+        s8 += 16;
+        d8 += 16;
+      }
+      while (s8 != (uint8_t *) src + bytes) {
+        *d8 ^= *s8;
+        d8++;
+        s8++;
+      }
+      return;
     }
-    while (s8 < (uint8_t *) rd.s_top) {
-      ms = _mm_load_si128 ((__m128i *)(s8));
-      md = _mm_load_si128 ((__m128i *)(d8));
+
+    abytes = (bytes & 0xfffffff0);
+
+    while (d8 < (uint8_t *) dest + abytes) {
+      ms = _mm_loadu_si128 ((__m128i *)(s8));
+      md = _mm_loadu_si128 ((__m128i *)(d8));
       md = _mm_xor_si128(md, ms);
-      _mm_store_si128((__m128i *)(d8), md);
+      _mm_storeu_si128((__m128i *)(d8), md);
       s8 += 16;
       d8 += 16;
     }
-    while (s8 != (uint8_t *) src + bytes) {
+    while (d8 != (uint8_t *) dest+bytes) {
       *d8 ^= *s8;
       d8++;
       s8++;
     }
     return;
   }
-
-  abytes = (bytes & 0xfffffff0);
-
-  while (d8 < (uint8_t *) dest + abytes) {
-    ms = _mm_loadu_si128 ((__m128i *)(s8));
-    md = _mm_loadu_si128 ((__m128i *)(d8));
-    md = _mm_xor_si128(md, ms);
-    _mm_storeu_si128((__m128i *)(d8), md);
-    s8 += 16;
-    d8 += 16;
-  }
-  while (d8 != (uint8_t *) dest+bytes) {
-    *d8 ^= *s8;
-    d8++;
-    s8++;
-  }
-  return;
 #endif
 #if defined(ARM_NEON)
-  s8 = (uint8_t *) src;
-  d8 = (uint8_t *) dest;
+  if (gf_cpu_supports_arm_neon) {
+    s8 = (uint8_t *) src;
+    d8 = (uint8_t *) dest;
 
-  if (uls % 16 == uld % 16) {
-    gf_set_region_data(&rd, NULL, src, dest, bytes, 1, xor, 16);
-    while (s8 != rd.s_start) {
+    if (uls % 16 == uld % 16) {
+      gf_set_region_data(&rd, NULL, src, dest, bytes, 1, xor, 16);
+      while (s8 != rd.s_start) {
+        *d8 ^= *s8;
+        s8++;
+        d8++;
+      }
+      while (s8 < (uint8_t *) rd.s_top) {
+        uint8x16_t vs = vld1q_u8 (s8);
+        uint8x16_t vd = vld1q_u8 (d8);
+        uint8x16_t vr = veorq_u8 (vs, vd);
+        vst1q_u8 (d8, vr);
+        s8 += 16;
+        d8 += 16;
+      }
+    } else {
+      while (s8 + 15 < (uint8_t *) src + bytes) {
+        uint8x16_t vs = vld1q_u8 (s8);
+        uint8x16_t vd = vld1q_u8 (d8);
+        uint8x16_t vr = veorq_u8 (vs, vd);
+        vst1q_u8 (d8, vr);
+        s8 += 16;
+        d8 += 16;
+      }
+    }
+    while (s8 < (uint8_t *) src + bytes) {
       *d8 ^= *s8;
       s8++;
       d8++;
     }
-    while (s8 < (uint8_t *) rd.s_top) {
-      uint8x16_t vs = vld1q_u8 (s8);
-      uint8x16_t vd = vld1q_u8 (d8);
-      uint8x16_t vr = veorq_u8 (vs, vd);
-      vst1q_u8 (d8, vr);
-      s8 += 16;
-      d8 += 16;
-    }
-  } else {
-    while (s8 + 15 < (uint8_t *) src + bytes) {
-      uint8x16_t vs = vld1q_u8 (s8);
-      uint8x16_t vd = vld1q_u8 (d8);
-      uint8x16_t vr = veorq_u8 (vs, vd);
-      vst1q_u8 (d8, vr);
-      s8 += 16;
-      d8 += 16;
-    }
+    return;
   }
-  while (s8 < (uint8_t *) src + bytes) {
-    *d8 ^= *s8;
-    s8++;
-    d8++;
-  }
-  return;
 #endif
   if (uls % 8 != uld % 8) {
     gf_unaligned_xor(src, dest, bytes);
