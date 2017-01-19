@@ -52,6 +52,7 @@
   lrc_init_n((lrc), _lrc_concat(_lrc_n_arr_, k_param), (m))
 
 
+extern void reed_sol_vandermonde_matrix_clean(int w);
 extern int *reed_sol_vandermonde_coding_matrix(int k, int m, int w);
 extern int jerasure_matrix_decode(int k, int m, int w,
                                   int *matrix, int row_k_ones, int *erasures,

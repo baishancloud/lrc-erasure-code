@@ -84,6 +84,8 @@ void lrc_destroy(lrc_t *lrc) {
     return;
   }
 
+  reed_sol_vandermonde_matrix_clean(8);
+
   free(lrc->code_erased);
   free(lrc->locals);
   free(lrc->matrix);
