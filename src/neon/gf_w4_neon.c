@@ -235,13 +235,13 @@ gf_w4_single_table_multiply_region_neon(gf_t *gf, void *src, void *dest,
 int gf_w4_neon_cfm_init(gf_t *gf)
 {
   // single clm multiplication probably pointless
-  gf->multiply.w32 = gf_w4_neon_clm_multiply;
-  gf->multiply_region.w32 = gf_w4_neon_clm_multiply_region_from_single;
+  SET_FUNCTION(gf,multiply,w32,gf_w4_neon_clm_multiply)
+  SET_FUNCTION(gf,multiply_region,w32,gf_w4_neon_clm_multiply_region_from_single)
 
   return 1;
 }
 
 void gf_w4_neon_single_table_init(gf_t *gf)
 {
-  gf->multiply_region.w32 = gf_w4_single_table_multiply_region_neon;
+  SET_FUNCTION(gf,multiply_region,w32,gf_w4_single_table_multiply_region_neon)
 }
